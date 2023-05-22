@@ -18,7 +18,7 @@ export type DaylioExport = {
   goalSuccessWeeks: GoalSuccessWeek[];
   reminders: unknown;
   writingTemplates: unknown;
-  moodIconsDefaultFreePackId: number;
+  moodIconsDefaultFreePackId: number1;
 };
 
 export type CustomMood = {
