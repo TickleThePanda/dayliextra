@@ -10,9 +10,12 @@ if (file === undefined) {
 
 console.log(file);
 
+/**
+ * @type {import("./daylio-export.js").DaylioExport}
+ */
 const backup = await extractBackup(file);
 
-console.log(Object.keys(backup));
+console.log(JSON.stringify(backup, null, 2));
 
 async function extractBackup(fileName) {
   const stream = fs
