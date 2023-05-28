@@ -1,28 +1,51 @@
+import unzipper from "unzipper";
+import fs from "fs";
+import { PassThrough } from "node:stream";
+
+export async function extractBackup(fileName: string): Promise<DaylioExport> {
+  const stream = fs
+    .createReadStream(fileName)
+    .pipe(unzipper.ParseOne(/backup.daylio/))
+    .pipe(new PassThrough());
+
+  const chunks = [];
+
+  for await (const chunk of stream) {
+    chunks.push(Buffer.from(chunk));
+  }
+
+  const base64 = Buffer.concat(chunks).toString("utf-8");
+
+  const text = Buffer.from(base64, "base64").toString("utf-8");
+
+  return JSON.parse(text);
+}
+
 export type DaylioExport = {
   version: number;
   isReminderOn: boolean;
   pin: string;
-  customMoods: CustomMood[];
-  tags: Tag[];
-  dayEntries: DayEntry[];
+  customMoods: DaylioExportCustomMood[];
+  tags: DaylioExportTag[];
+  dayEntries: DaylioExportDayEntry[];
   achievements: unknown;
   daysInRowLongestChain: number;
-  goals: Goal[];
+  goals: DaylioExportGoal[];
   prefs: unknown;
-  tag_groups: TagGroup[];
-  metadata: Metadata;
+  tag_groups: DaylioExportTagGroup[];
+  metadata: DaylioExportMetadata;
   moodIconsPackId: number;
   preferredMoodIconsIdsForMoodIdsForIconsPack: unknown;
   assets: unknown[];
-  goalEntries: GoalEntry[];
-  goalSuccessWeeks: GoalSuccessWeek[];
+  goalEntries: DaylioExportGoalEntry[];
+  goalSuccessWeeks: DaylioExportGoalSuccessWeek[];
   reminders: unknown;
   writingTemplates: unknown;
-  moodIconsDefaultFreePackId: number1;
+  moodIconsDefaultFreePackId: number;
 };
 
-export type CustomMood = {
-  id: string;
+export type DaylioExportCustomMood = {
+  id: number;
   custom_name: string;
   mood_group_id: number;
   mood_group_order: number;
@@ -32,7 +55,7 @@ export type CustomMood = {
   createdAt: number;
 };
 
-export type Tag = {
+export type DaylioExportTag = {
   id: number;
   name: string;
   createdAt: number;
@@ -42,7 +65,7 @@ export type Tag = {
   id_tag_group: number;
 };
 
-export type DayEntry = {
+export type DaylioExportDayEntry = {
   id: number;
   minute: number;
   hour: number;
@@ -58,7 +81,7 @@ export type DayEntry = {
   assets: unknown[];
 };
 
-export type Goal = {
+export type DaylioExportGoal = {
   id: number;
   goal_id: number;
   created_at: number;
@@ -76,14 +99,14 @@ export type Goal = {
   order: number;
 };
 
-export type TagGroup = {
+export type DaylioExportTagGroup = {
   id: number;
   name: string;
   is_expanded: boolean;
   order: number;
 };
 
-export type Metadata = {
+export type DaylioExportMetadata = {
   number_of_entries: number;
   created_at: number;
   is_auto_backup: boolean;
@@ -93,7 +116,7 @@ export type Metadata = {
   photos_size: number;
 };
 
-export type GoalEntry = {
+export type DaylioExportGoalEntry = {
   id: number;
   goalId: number;
   year: number;
@@ -105,7 +128,7 @@ export type GoalEntry = {
   createdAt: number;
 };
 
-export type GoalSuccessWeek = {
+export type DaylioExportGoalSuccessWeek = {
   goal_id: number;
   year: number;
   week: number;
