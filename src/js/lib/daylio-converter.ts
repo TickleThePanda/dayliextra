@@ -1,6 +1,5 @@
-import { parseISO } from "date-fns";
 import { DaylioExport, extractBackup } from "./daylio-export.js";
-import { format, getDaysInMonth, parse } from "date-fns";
+import { format, getDaysInMonth, parse, parseISO, startOfWeek } from "date-fns";
 import { TableUserConfig, table } from "table";
 
 const originalNames = ["rad", "good", "meh", "bad", "awful"];
@@ -19,10 +18,11 @@ export class DaylioDatasource {
     return new TimePeriodGroupedEntries(
       "week",
       this.getEntriesGroupedBy(
-        (v) => format(v.date, "yyyy-II"),
-        () => 7
+        (v) => format(startOfWeek(v.date), "yyyy-MM-dd"),
+        () => 7,
+        "yyyy-MM-dd"
       ),
-      "yyyy-II"
+      "yyyy-MM-dd"
     );
   }
 
@@ -31,7 +31,8 @@ export class DaylioDatasource {
       "month",
       this.getEntriesGroupedBy(
         (v) => format(v.date, "yyyy-MM"),
-        (v) => getDaysInMonth(parseISO(v))
+        (v) => getDaysInMonth(parseISO(v)),
+        "yyyy-MM"
       ),
       "yyyy-MM"
     );
@@ -42,7 +43,8 @@ export class DaylioDatasource {
       "day",
       this.getEntriesGroupedBy(
         (v) => format(v.date, "yyyy-MM-dd"),
-        () => 1
+        () => 1,
+        "yyyy-MM-dd"
       ),
       "yyyy-MM-dd"
     );
@@ -50,7 +52,8 @@ export class DaylioDatasource {
 
   getEntriesGroupedBy(
     grouper: (e: Entry) => string,
-    entryLengthCalculator: (e: string) => number
+    entryLengthCalculator: (e: string) => number,
+    format: string
   ): TimePeriodGroupedEntry[] {
     const entries = this.getEntries();
 
@@ -70,7 +73,7 @@ export class DaylioDatasource {
           groupLengthDays: entryLengthCalculator(group),
           tagEntries: entries.flatMap((entry) => entry.tags),
           moodEntries: entries.map((entry) => entry.mood),
-          dateFormat: "yyyy-MM-dd",
+          dateFormat: format,
         })
     );
   }
@@ -202,9 +205,9 @@ export class TimePeriodGroupedEntries {
 
   movingAverage(
     windowSizeInEntryUnits: number,
-    firstDate: Date
+    entryFilter: (e: TimePeriodGroupedEntry) => boolean = () => true
   ): MovingAverageEntry[] {
-    const filteredEntries = this.entries.filter((e) => e.date >= firstDate);
+    const filteredEntries = this.entries.filter(entryFilter);
 
     const nEntries = filteredEntries.length;
     const beforeWindow = Math.floor(windowSizeInEntryUnits / 2);
@@ -238,9 +241,9 @@ export class TimePeriodGroupedEntries {
 
 export class MovingAverageEntry {
   private _date: string;
-  private sum: number;
-  private count: number;
-  private format: string;
+  public sum: number;
+  public count: number;
+  public format: string;
   constructor({
     date,
     count,
@@ -449,12 +452,13 @@ export class TimePeriodGroupedEntry {
     groupLengthDays,
     moodEntries,
     tagEntries,
+    dateFormat,
   }: GroupedEntryConstructorArgs) {
     this.group = group;
     this.groupLengthDays = groupLengthDays;
     this.moodEntries = moodEntries;
     this.tagEntries = tagEntries;
-    this.dateFormat = "yyyy-MM-dd";
+    this.dateFormat = dateFormat;
   }
 
   get countOfTags(): TagCount[] {

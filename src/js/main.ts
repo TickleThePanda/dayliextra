@@ -4,10 +4,12 @@ import {
   DaylioDatasource as DaylioDatasource,
   ReferenceType,
   RelationshipStats,
+  MovingAverageEntry,
 } from "./lib/daylio-converter.js";
 
 import Chart from "chart.js/auto";
 import "chartjs-adapter-date-fns";
+import { format, parse } from "date-fns";
 
 import { enGB } from "date-fns/locale";
 
@@ -26,60 +28,10 @@ async function main(blob: Blob) {
 
   const dayEntries = datasource.getDayEntries();
 
-  const tagRelationships = generateRelationships(dayEntries);
+  const firstDate = new Date("2023-01-01");
 
-  const bestCombinations = getBestCombinations(tagRelationships);
-
-  console.log("--- Best combinations ---");
-  for (let r of bestCombinations) {
-    console.log(r.toString());
-  }
-
-  const worstCombinations = getWorstCombinations(tagRelationships);
-  console.log();
-  console.log("--- Worst combinations ---");
-  for (let r of worstCombinations) {
-    console.log(r.toString());
-  }
-
-  console.log();
-  console.log("--- Chosen stats ---");
-
-  console.log(
-    dayEntries
-      .relationshipBetween(
-        {
-          name: "working",
-          type: "Tag",
-        },
-        {
-          name: "Alcohol",
-          type: "Group",
-        }
-      )
-      .toString()
-  );
-
-  console.log(
-    dayEntries
-      .relationshipBetween(
-        {
-          name: "Social",
-          type: "Group",
-        },
-        {
-          name: "Alcohol",
-          type: "Group",
-        }
-      )
-      .toString()
-  );
-
-  // const entrySets = [datasource.getMonthEntries(), datasource.getWeekEntries()];
-
-  // await generateRelationshipCharts(entrySets);
-
-  await generateMoodOverTimeCharts(dayEntries);
+  await generateMoodOverTimeCharts(dayEntries, 30, (e) => e.date > firstDate);
+  await generateYearComparison(dayEntries, 30);
 }
 
 function getBestCombinations(tagRelationships: RelationshipStats[]) {
@@ -204,12 +156,12 @@ function createChartElement(idSlug: string) {
 }
 
 async function generateMoodOverTimeCharts(
-  dayEntries: TimePeriodGroupedEntries
+  entries: TimePeriodGroupedEntries,
+  window: number,
+  entryFilter: (e: TimePeriodGroupedEntry) => boolean = () => true
 ) {
-  const firstDate = new Date("2021-10-01");
-  const movingAverageOverTime = dayEntries.movingAverage(30, firstDate);
+  const movingAverageOverTime = entries.movingAverage(window, entryFilter);
 
-  movingAverageOverTime.filter((v) => v.date > firstDate);
   const data = movingAverageOverTime.map((v) => ({
     x: v.date,
     y: v.average,
@@ -217,6 +169,20 @@ async function generateMoodOverTimeCharts(
   const chart = new Chart(createChartElement("mood-over-time"), {
     type: "line",
     options: {
+      elements: {
+        point: {
+          radius: 0,
+        },
+        line: {
+          borderColor: "#000000",
+          borderWidth: 1,
+        },
+      },
+      plugins: {
+        legend: {
+          display: false,
+        },
+      },
       scales: {
         y: {
           title: {
@@ -225,13 +191,27 @@ async function generateMoodOverTimeCharts(
           },
           min: 1,
           max: 5,
+          grid: {
+            display: false,
+          },
         },
         x: {
           title: {
             display: true,
             text: "date",
           },
+          grid: {
+            drawOnChartArea: false,
+            drawTicks: true,
+          },
+          ticks: {
+            maxRotation: 0,
+            minRotation: 0,
+          },
           type: "time",
+          time: {
+            unit: "month",
+          },
           adapters: {
             date: {
               locale: enGB,
@@ -243,10 +223,135 @@ async function generateMoodOverTimeCharts(
     data: {
       datasets: [
         {
+          title: "mood",
           data,
           pointBackgroundColor: "#000000",
         },
       ],
+    },
+  });
+
+  chart.render();
+}
+
+async function generateYearComparison(
+  entries: TimePeriodGroupedEntries,
+  window: number
+) {
+  const movingAverageOverTime = entries.movingAverage(window);
+
+  function groupByYear(entries: MovingAverageEntry[]) {
+    const years = new Map<number, MovingAverageEntry[]>();
+    for (const entry of entries) {
+      const year = entry.date.getFullYear();
+      if (!years.has(year)) {
+        years.set(year, []);
+      }
+      years.get(year)?.push(entry);
+    }
+    return years;
+  }
+
+  function normaliseDatesIntoSingleYear(
+    years: Map<number, MovingAverageEntry[]>
+  ) {
+    const normalised = new Map<number, MovingAverageEntry[]>();
+    for (const [year, entries] of years) {
+      const normalisedEntries = entries.map(
+        (e) =>
+          new MovingAverageEntry({
+            count: e.count,
+            sum: e.sum,
+            format: "yyyy-MM-dd",
+            date: format(
+              parse(
+                `1970-${e.date.getMonth() + 1}-${e.date.getDate()}`,
+                "yyyy-MM-dd",
+                new Date()
+              ),
+              "yyyy-MM-dd"
+            ),
+          })
+      );
+      normalised.set(year, normalisedEntries);
+    }
+    return normalised;
+  }
+
+  const years = normaliseDatesIntoSingleYear(
+    groupByYear(movingAverageOverTime)
+  );
+
+  const colors: Record<number, string> = {
+    2021: "#9175a7",
+    2022: "#664bac",
+    2023: "#1b39ba",
+  };
+
+  const datasets = Array.from(years).map(([year, entries]) => ({
+    label: year,
+    data: entries.map((v) => ({
+      x: v.date,
+      y: v.average,
+    })),
+    borderColor: colors[year],
+    backgroundColor: colors[year],
+  }));
+
+  const chart = new Chart(createChartElement("mood-over-time"), {
+    type: "line",
+    options: {
+      elements: {
+        point: {
+          radius: 0,
+        },
+        line: {
+          borderColor: "#000000",
+          borderWidth: 2,
+        },
+      },
+      scales: {
+        y: {
+          title: {
+            display: true,
+            text: "mood",
+          },
+          min: 1,
+          max: 5,
+          grid: {
+            display: false,
+          },
+        },
+        x: {
+          title: {
+            display: true,
+            text: "date",
+          },
+          grid: {
+            drawOnChartArea: false,
+            drawTicks: true,
+          },
+          ticks: {
+            maxRotation: 0,
+            minRotation: 0,
+          },
+          type: "time",
+          time: {
+            unit: "month",
+            displayFormats: {
+              month: "MMM",
+            },
+          },
+          adapters: {
+            date: {
+              locale: enGB,
+            },
+          },
+        },
+      },
+    },
+    data: {
+      datasets,
     },
   });
 
