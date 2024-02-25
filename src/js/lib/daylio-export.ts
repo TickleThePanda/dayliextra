@@ -1,24 +1,21 @@
-import unzipper from "unzipper";
-import fs from "fs";
-import { PassThrough } from "node:stream";
+import { unzip } from "unzipit";
 
-export async function extractBackup(fileName: string): Promise<DaylioExport> {
-  const stream = fs
-    .createReadStream(fileName)
-    .pipe(unzipper.ParseOne(/backup.daylio/))
-    .pipe(new PassThrough());
+export async function extractBackup(blob: Blob): Promise<DaylioExport> {
+  const zip = await unzip(blob);
+  const key = Object.keys(zip.entries).find((k) => k.includes("backup.daylio"));
 
-  const chunks = [];
+  console.log(key);
 
-  for await (const chunk of stream) {
-    chunks.push(Buffer.from(chunk));
+  if (!key) {
+    throw new Error("Backup file not found");
   }
 
-  const base64 = Buffer.concat(chunks).toString("utf-8");
-
-  const text = Buffer.from(base64, "base64").toString("utf-8");
-
-  return JSON.parse(text);
+  const file = zip.entries[key];
+  console.log(file);
+  console.log(await file.text());
+  const base64 = await file.text();
+  console.log(atob(base64));
+  return JSON.parse(atob(base64));
 }
 
 export type DaylioExport = {

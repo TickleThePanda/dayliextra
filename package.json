@@ -3,21 +3,36 @@
   "version": "1.0.0",
   "description": "",
   "main": "src/main.js",
-  "type": "commonjs",
+  "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "gulp",
+    "watch": "gulp watch",
+    "ws": "live-server ./site --port=8000 --no-browser --no-css-inject --wait=300",
+    "dev": "rm -rf site; npm run build; concurrently \"npm run watch\" \"npm run ws\""
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
     "chart.js": "^3.9.1",
-    "chartjs-node-canvas": "^4.1.6",
+    "chartjs-adapter-date-fns": "^3.0.0",
     "date-fns": "^2.30.0",
     "table": "^6.8.1",
     "typescript": "^5.0.4",
-    "unzipper": "^0.10.14"
+    "unzipit": "^1.4.3"
   },
   "devDependencies": {
-    "@types/unzipper": "^0.10.6"
+    "@types/glob": "^8.1.0",
+    "@types/gulp": "^4.0.17",
+    "@types/gulp-clean-css": "^4.3.4",
+    "@types/gulp-less": "^0.0.36",
+    "@types/unzipper": "^0.10.6",
+    "concurrently": "^8.2.2",
+    "esbuild": "^0.20.1",
+    "glob": "^10.3.10",
+    "gulp": "^4.0.2",
+    "gulp-clean-css": "^4.3.0",
+    "gulp-less": "^5.0.0",
+    "live-server": "^1.2.2",
+    "ts-node": "^10.9.2"
   }
 }

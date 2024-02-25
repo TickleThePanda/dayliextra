@@ -1,7 +1,6 @@
 import { parseISO } from "date-fns";
-import { DaylioExport, extractBackup } from "./daylio-export";
+import { DaylioExport, extractBackup } from "./daylio-export.js";
 import { format, getDaysInMonth, parse } from "date-fns";
-import { EOL } from "os";
 import { TableUserConfig, table } from "table";
 
 const originalNames = ["rad", "good", "meh", "bad", "awful"];
@@ -12,44 +11,47 @@ export class DaylioDatasource {
     this.tags = this.loadTags();
   }
 
-  static async fromFile(file: string): Promise<DaylioDatasource> {
-    return new DaylioDatasource(await extractBackup(file));
+  static async fromUploadedFile(blob: Blob): Promise<DaylioDatasource> {
+    return new DaylioDatasource(await extractBackup(blob));
   }
 
-  getWeekEntries(): GroupedEntries {
-    return new GroupedEntries(
+  getWeekEntries(): TimePeriodGroupedEntries {
+    return new TimePeriodGroupedEntries(
       "week",
       this.getEntriesGroupedBy(
         (v) => format(v.date, "yyyy-II"),
         () => 7
-      )
+      ),
+      "yyyy-II"
     );
   }
 
-  getMonthEntries(): GroupedEntries {
-    return new GroupedEntries(
+  getMonthEntries(): TimePeriodGroupedEntries {
+    return new TimePeriodGroupedEntries(
       "month",
       this.getEntriesGroupedBy(
         (v) => format(v.date, "yyyy-MM"),
         (v) => getDaysInMonth(parseISO(v))
-      )
+      ),
+      "yyyy-MM"
     );
   }
 
-  getDayEntries(): GroupedEntries {
-    return new GroupedEntries(
+  getDayEntries(): TimePeriodGroupedEntries {
+    return new TimePeriodGroupedEntries(
       "day",
       this.getEntriesGroupedBy(
         (v) => format(v.date, "yyyy-MM-dd"),
         () => 1
-      )
+      ),
+      "yyyy-MM-dd"
     );
   }
 
   getEntriesGroupedBy(
     grouper: (e: Entry) => string,
     entryLengthCalculator: (e: string) => number
-  ): GroupedEntry[] {
+  ): TimePeriodGroupedEntry[] {
     const entries = this.getEntries();
 
     const grouped = entries.reduce((p, v) => {
@@ -63,11 +65,12 @@ export class DaylioDatasource {
 
     return Object.entries(grouped).map(
       ([group, entries]) =>
-        new GroupedEntry({
+        new TimePeriodGroupedEntry({
           group: group,
           groupLengthDays: entryLengthCalculator(group),
           tagEntries: entries.flatMap((entry) => entry.tags),
           moodEntries: entries.map((entry) => entry.mood),
+          dateFormat: "yyyy-MM-dd",
         })
     );
   }
@@ -111,8 +114,12 @@ export class DaylioDatasource {
   }
 }
 
-export class GroupedEntries {
-  constructor(public type: string, public entries: GroupedEntry[]) {}
+export class TimePeriodGroupedEntries {
+  constructor(
+    public type: string,
+    public entries: TimePeriodGroupedEntry[],
+    public dateFormat: string
+  ) {}
 
   get uniqueTags(): string[] {
     return [
@@ -191,6 +198,72 @@ export class GroupedEntries {
         matchingEntries.reduce((p, v) => (p += v.averageMood), 0) /
         matchingEntries.length,
     };
+  }
+
+  movingAverage(
+    windowSizeInEntryUnits: number,
+    firstDate: Date
+  ): MovingAverageEntry[] {
+    const filteredEntries = this.entries.filter((e) => e.date >= firstDate);
+
+    const nEntries = filteredEntries.length;
+    const beforeWindow = Math.floor(windowSizeInEntryUnits / 2);
+    const afterWindow = Math.ceil(windowSizeInEntryUnits / 2);
+
+    const windows: MovingAverageEntry[] = [];
+
+    for (let i = beforeWindow; i < nEntries - afterWindow; i++) {
+      const currentEntry = filteredEntries[i];
+      const entriesInWindow = [];
+      for (let j = i - beforeWindow; j < i + afterWindow; j++) {
+        entriesInWindow.push(this.entries[j]);
+      }
+
+      const sum = entriesInWindow.reduce((p, v) => p + v.averageMood, 0);
+      const count = entriesInWindow.length;
+
+      windows.push(
+        new MovingAverageEntry({
+          date: currentEntry.group,
+          count,
+          sum,
+          format: this.dateFormat,
+        })
+      );
+    }
+
+    return windows;
+  }
+}
+
+export class MovingAverageEntry {
+  private _date: string;
+  private sum: number;
+  private count: number;
+  private format: string;
+  constructor({
+    date,
+    count,
+    sum,
+    format,
+  }: {
+    date: string;
+    format: string;
+    count: number;
+    sum: number;
+  }) {
+    this._date = date;
+    this.sum = sum;
+    this.count = count;
+    this.format = format;
+  }
+
+  get date(): Date {
+    return parse(this._date, this.format, new Date());
+  }
+
+  get average(): number {
+    return this.sum / this.count;
   }
 }
 
@@ -329,7 +402,7 @@ export class ReferenceState {
     this.present = present;
   }
 
-  hasState(entry: GroupedEntry) {
+  hasState(entry: TimePeriodGroupedEntry) {
     if (this.reference.type === "Tag") {
       if (this.present) {
         return entry.tagEntries.some((e) => e.tagName === this.reference.name);
@@ -361,13 +434,15 @@ export type GroupedEntryConstructorArgs = {
   groupLengthDays: number;
   moodEntries: Mood[];
   tagEntries: Tag[];
+  dateFormat: string;
 };
 
-export class GroupedEntry {
+export class TimePeriodGroupedEntry {
   group: string;
   moodEntries: Mood[];
   tagEntries: Tag[];
   groupLengthDays: number;
+  dateFormat: string;
 
   constructor({
     group,
@@ -379,6 +454,7 @@ export class GroupedEntry {
     this.groupLengthDays = groupLengthDays;
     this.moodEntries = moodEntries;
     this.tagEntries = tagEntries;
+    this.dateFormat = "yyyy-MM-dd";
   }
 
   get countOfTags(): TagCount[] {
@@ -414,6 +490,10 @@ export class GroupedEntry {
       this.moodEntries.reduce((sum, mood) => sum + (mood.value ?? 2.5), 0) /
       this.moodEntries.length
     );
+  }
+
+  get date(): Date {
+    return parse(this.group, this.dateFormat, new Date());
   }
 }
 
