@@ -31,8 +31,7 @@ export async function generateMoodOverTimeCharts(
           radius: 0,
         },
         line: {
-          borderColor: "#000000",
-          borderWidth: 1,
+          borderWidth: 2,
         },
       },
       plugins: {
@@ -97,6 +96,8 @@ export async function generateMoodOverTimeCharts(
         {
           data,
           pointBackgroundColor: "#000000",
+          borderColor: "#d668cc",
+          backgroundColor: "#d668cc",
         },
       ],
     },
