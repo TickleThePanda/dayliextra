@@ -1,0 +1,28 @@
+.chart-container {
+    margin-top: 1em;
+    display: grid;
+    max-width: 40em;
+
+    gap: 2em;
+    grid-auto-rows: 80%;
+
+    margin-bottom: 50vh;
+}
+
+form {
+    label {
+        display: block;
+        margin-top: 0.5em;
+        font-weight: 700;
+    }
+    input {
+        display: block;
+
+        margin-top: 0.5em;
+    }
+    button {
+        display: block;
+
+        margin-top: 0.5em;
+    }
+}

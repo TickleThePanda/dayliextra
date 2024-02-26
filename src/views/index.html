@@ -4,12 +4,36 @@
     <meta charset="utf-8">
     <title>Dayliextra</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/yegor256/tacit@gh-pages/tacit-css-1.7.1.min.css"/>
+    <link rel="stylesheet" href="/style/main.css">
   </head>
   <body>
-    <form>
-        <input type="file" id="file" name="file" />
-        <button type="submit" id="upload">Upload</button>
-    </form>
-    <script type="module" src="/scripts/main.js"></script>
+    <section>
+      <header>
+        <h1>Dayliextra</h1>
+        <p>
+          Dayliextra uses your export from Daylio to provide extra insights into
+          your mood and activities.
+        </p>
+      </header>
+      <article>
+        <form id="upload-form">
+          <p>
+            Select your Daylio export to see your insights. All of the
+            processing is done locally. No data is sent to the server.
+          </p>
+          <label for="file">Select your backup</label>
+          <input type="file" id="file" name="file" />
+          <button type="submit" id="upload">Select</button>
+        </form>
+        <div id="status" hidden>
+          Analysing your data...
+        </div>
+        <script type="module" src="/scripts/main.js"></script>
+        <div id="charts" class="chart-container"></div>
+      </article>
+
+    </section>
+    
   </body>
 </html>
