@@ -22,7 +22,7 @@ export function createTitle(title: string): {
     padding: {
       bottom: 5,
     },
-    color: "#333333",
+    color: "#000000",
   };
 }
 
@@ -52,6 +52,6 @@ export function createSubtitle(subtitle: string): {
     padding: {
       bottom: 20,
     },
-    color: "#333333",
+    color: "#000000",
   };
 }
