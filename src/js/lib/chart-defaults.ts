@@ -1,4 +1,16 @@
-export function createTitle(title: string) {
+export function createTitle(title: string): {
+  display: boolean;
+  text: string;
+  align: "start";
+  font: {
+    size: number;
+    weight: "normal";
+  };
+  padding: {
+    bottom: number;
+  };
+  color: string;
+} {
   return {
     display: true,
     text: title,
@@ -13,7 +25,21 @@ export function createTitle(title: string) {
     color: "#333333",
   };
 }
-export function createSubtitle(subtitle: string) {
+
+export function createSubtitle(subtitle: string): {
+  display: boolean;
+  text: string;
+  align: "start";
+  font: {
+    size: number;
+    weight: "normal";
+    lineHeight: number;
+  };
+  padding: {
+    bottom: number;
+  };
+  color: string;
+} {
   return {
     display: true,
     text: subtitle,

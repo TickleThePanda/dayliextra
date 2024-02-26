@@ -58,8 +58,7 @@ async function main(blob: Blob) {
     30,
     "days",
     "Over the last 6 months",
-    (e) => e.date > sixMonthsAgo,
-    { min: undefined, max: undefined }
+    (e) => e.date > sixMonthsAgo
   );
   await generateYearComparison(dayEntries, 30, (e) => e.date > startOf2022);
 }

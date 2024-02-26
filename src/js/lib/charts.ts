@@ -38,9 +38,6 @@ export async function generateMoodOverTimeCharts(
       plugins: {
         legend: {
           display: false,
-          padding: {
-            top: 0,
-          },
         },
         title: createTitle("Mood over time"),
         subtitle: createSubtitle(
@@ -49,14 +46,22 @@ export async function generateMoodOverTimeCharts(
       },
       scales: {
         y: {
+          type: "linear",
           title: {
             display: false,
             text: "mood",
           },
           grid: {
+            display: true,
+            color: "#cccccc",
+          },
+          border: {
             display: false,
           },
           ...axisRange,
+          ticks: {
+            stepSize: 1,
+          },
         },
         x: {
           title: {
@@ -66,6 +71,10 @@ export async function generateMoodOverTimeCharts(
           grid: {
             drawOnChartArea: false,
             drawTicks: true,
+          },
+          border: {
+            display: false,
+            color: "#000000",
           },
           ticks: {
             maxRotation: 0,
@@ -86,7 +95,6 @@ export async function generateMoodOverTimeCharts(
     data: {
       datasets: [
         {
-          title: "mood",
           data,
           pointBackgroundColor: "#000000",
         },
@@ -153,7 +161,7 @@ export async function generateYearComparison(
   };
 
   const datasets = Array.from(years).map(([year, entries]) => ({
-    label: year,
+    label: year.toString(),
     data: entries.map((v) => ({
       x: v.date,
       y: v.average,
@@ -189,7 +197,14 @@ export async function generateYearComparison(
           min: 1,
           max: 5,
           grid: {
+            display: true,
+            color: "#cccccc",
+          },
+          border: {
             display: false,
+          },
+          ticks: {
+            stepSize: 1,
           },
         },
         x: {
@@ -200,6 +215,9 @@ export async function generateYearComparison(
           grid: {
             drawOnChartArea: false,
             drawTicks: true,
+          },
+          border: {
+            display: false,
           },
           ticks: {
             maxRotation: 0,
