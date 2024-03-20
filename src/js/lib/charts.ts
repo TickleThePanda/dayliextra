@@ -124,6 +124,12 @@ export async function generateYearComparison(
     return years;
   }
 
+  function normaliseDate(date: Date) {
+    const normalised = new Date(date);
+    normalised.setFullYear(1970);
+    return normalised;
+  }
+
   function normaliseDatesIntoSingleYear(
     years: Map<number, MovingAverageEntry[]>
   ) {
@@ -135,14 +141,7 @@ export async function generateYearComparison(
             count: e.count,
             sum: e.sum,
             format: "yyyy-MM-dd",
-            date: format(
-              parse(
-                `1970-${e.date.getMonth() + 1}-${e.date.getDate()}`,
-                "yyyy-MM-dd",
-                new Date()
-              ),
-              "yyyy-MM-dd"
-            ),
+            date: format(normaliseDate(e.date), "yyyy-MM-dd"),
           })
       );
       normalised.set(year, normalisedEntries);

@@ -8,7 +8,9 @@
     "build": "gulp",
     "watch": "gulp watch",
     "ws": "live-server ./site --port=8000 --no-browser --no-css-inject --wait=300",
-    "dev": "rm -rf site; npm run build; concurrently \"npm run watch\" \"npm run ws\""
+    "clean": "rm -rf site",
+    "tunnel": "lt --port 8000 --subdomain dayliextra",
+    "dev": "npm run clean; npm run build; concurrently \"npm run watch\" \"npm run ws\" \"npm run tunnel\""
   },
   "author": "",
   "license": "ISC",
@@ -33,6 +35,7 @@
     "gulp-clean-css": "^4.3.0",
     "gulp-less": "^5.0.0",
     "live-server": "^1.2.2",
+    "localtunnel": "^2.0.2",
     "ts-node": "^10.9.2"
   }
 }
