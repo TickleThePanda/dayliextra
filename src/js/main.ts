@@ -7,8 +7,10 @@ import {
 
 import "chartjs-adapter-date-fns";
 
-import { generateMoodOverTimeCharts } from "./lib/charts.js";
-import { generateYearComparison } from "./lib/charts.js";
+import {
+  generateMoodOverTimeCharts,
+  generateYearComparison,
+} from "./lib/charts.js";
 import { addDays, subDays, subMonths } from "date-fns";
 
 window.addEventListener("DOMContentLoaded", () => {
@@ -38,21 +40,19 @@ async function main(blob: Blob) {
   const datasource = await DaylioDatasource.fromUploadedFile(blob);
 
   const dayEntries = datasource.getDayEntries();
-
   const weekEntries = datasource.getWeekEntries();
-
-  const startOf2023 = subDays(new Date("2023-01-01"), 28);
-  const startOf2022 = subDays(new Date("2022-01-01"), 30);
-
+  const startOf2022 = new Date("2022-01-01");
   const sixMonthsAgo = subMonths(new Date(), 6);
+  const eightWeeksAgo = subDays(new Date(), 8 * 7);
 
   await generateMoodOverTimeCharts(
-    weekEntries,
-    4,
-    "weeks",
-    "Since 2023",
-    (e) => e.date > startOf2023
+    dayEntries,
+    7,
+    "days",
+    "Over the last 8 weeks",
+    (e) => e.date > eightWeeksAgo
   );
+
   await generateMoodOverTimeCharts(
     dayEntries,
     30,
@@ -60,52 +60,20 @@ async function main(blob: Blob) {
     "Over the last 6 months",
     (e) => e.date > sixMonthsAgo
   );
-  await generateYearComparison(dayEntries, 30, (e) => e.date > startOf2022);
-}
 
-function getBestCombinations(tagRelationships: RelationshipStats[]) {
-  return tagRelationships
-    .filter((r) => r.relationshipStats[0].count > 10)
-    .sort(
-      (a, b) =>
-        b.relationshipStats[0].averageMood - a.relationshipStats[0].averageMood
-    )
-    .slice(0, 10);
-}
+  await generateYearComparison(
+    dayEntries,
+    30,
+    (e) => e.date > subDays(startOf2022, 15)
+  );
 
-function getWorstCombinations(tagRelationships: RelationshipStats[]) {
-  return tagRelationships
-    .filter((r) => r.relationshipStats[0].count > 10)
-    .sort(
-      (a, b) =>
-        a.relationshipStats[0].averageMood - b.relationshipStats[0].averageMood
-    )
-    .slice(0, 10);
-}
-
-function generateRelationships(dayEntries: TimePeriodGroupedEntries) {
-  const tagRelationships = [];
-  const tags = dayEntries.uniqueTags;
-  for (let i = 0; i < tags.length; i++) {
-    for (let j = i + 1; j < tags.length; j++) {
-      const tag1 = tags[i];
-      const tag2 = tags[j];
-
-      tagRelationships.push(
-        dayEntries.relationshipBetween(
-          {
-            name: tag1,
-            type: "Tag",
-          },
-          {
-            name: tag2,
-            type: "Tag",
-          }
-        )
-      );
-    }
-  }
-  return tagRelationships;
+  await generateMoodOverTimeCharts(
+    weekEntries,
+    13,
+    "weeks",
+    "Since start 2023",
+    (e) => e.date > startOf2022
+  );
 }
 
 export function createChartElement(idSlug: string) {
