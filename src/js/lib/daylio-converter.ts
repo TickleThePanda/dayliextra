@@ -1,5 +1,12 @@
 import { DaylioExport, extractBackup } from "./daylio-export.js";
-import { format, getDaysInMonth, parse, parseISO, startOfWeek } from "date-fns";
+import {
+  format,
+  getDaysInMonth,
+  parse,
+  parseISO,
+  setYear,
+  startOfWeek,
+} from "date-fns";
 import { TableUserConfig, table } from "table";
 
 const originalNames = ["rad", "good", "meh", "bad", "awful"];
@@ -236,6 +243,83 @@ export class TimePeriodGroupedEntries {
     }
 
     return windows;
+  }
+
+  moodsByDayOfYear(): GroupedMoods {
+    const moods = this.entries.reduce((acc, entry) => {
+      const dateAlignedTo1970 = format(setYear(entry.date, 1970), "yyyy-MM-dd");
+      acc[dateAlignedTo1970] = (acc[dateAlignedTo1970] || []).concat([
+        entry.averageMood,
+      ]);
+      return acc;
+    }, {} as Record<string, number[]>);
+
+    const groupedMoods = Object.entries(moods).map(([date, moods]) => {
+      return new MoodGroupEntry(moods, parse(date, "yyyy-MM-dd", new Date()));
+    });
+    return new GroupedMoods(
+      groupedMoods.sort((a, b) => a.date.getTime() - b.date.getTime())
+    );
+  }
+}
+
+type DatasetEntry = {
+  x: Date;
+  y: number;
+};
+
+export class GroupedMoods {
+  public entries: MoodGroupEntry[];
+
+  constructor(entries: MoodGroupEntry[]) {
+    this.entries = entries;
+  }
+
+  get averageSeries(): DatasetEntry[] {
+    return this.entries
+      .map((entry) => ({
+        x: entry.date,
+        y: entry.average,
+      }))
+      .sort((a, b) => a.x.getTime() - b.x.getTime());
+  }
+
+  get minSeries(): DatasetEntry[] {
+    return this.entries
+      .map((entry) => ({
+        x: entry.date,
+        y: entry.min,
+      }))
+      .sort((a, b) => a.x.getTime() - b.x.getTime());
+  }
+
+  get maxSeries(): DatasetEntry[] {
+    return this.entries
+      .map((entry) => ({
+        x: entry.date,
+        y: entry.max,
+      }))
+      .sort((a, b) => a.x.getTime() - b.x.getTime());
+  }
+}
+
+export class MoodGroupEntry {
+  public date: Date;
+  public moods: number[];
+
+  constructor(moods: number[], date: Date) {
+    this.moods = moods;
+    this.date = date;
+  }
+  get average(): number {
+    const allMoods = Object.values(this.moods).flat();
+    return allMoods.reduce((p, v) => (p += v), 0) / allMoods.length;
+  }
+  get min(): number {
+    return Math.min(...this.moods);
+  }
+  get max(): number {
+    return Math.max(...this.moods);
   }
 }
 

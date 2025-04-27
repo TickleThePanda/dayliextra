@@ -316,67 +316,40 @@ async function generateRelationshipCharts(
   }
 }
 
+type DatedValue = {
+  x: Date;
+  y: number;
+};
+
+function rollingAverageTorroidial(arr: DatedValue[], window: number) {
+  const result = arr.map((v) => ({ x: v.x, y: 0 }));
+  const n = arr.length;
+  for (let i = 0; i < n; i++) {
+    let sum = 0;
+    for (let j = 0; j < window; j++) {
+      const index = i + j - window / 2;
+      sum += arr[(index + n) % n].y;
+    }
+    result[i].y = sum / window;
+  }
+  return result;
+}
+
 export async function generateAverageMoodOnDayOfYear(
   entries: TimePeriodGroupedEntries,
   window: number,
   unit: string
 ) {
-  const moodOnDayOfYear = entries.entries.reduce((acc, entry) => {
-    const dateAlignedTo1970 = format(setYear(entry.date, 1970), "yyyy-MM-dd");
-    acc[dateAlignedTo1970] = (acc[dateAlignedTo1970] || []).concat([
-      entry.averageMood,
-    ]);
-    return acc;
-  }, {} as Record<string, number[]>);
-
-  type DateValue = {
-    x: Date;
-    y: number;
-  };
-
-  const rollingAverageTorroidial = (arr: DateValue[], window: number) => {
-    const result = arr.map((v) => ({ x: v.x, y: 0 }));
-    const n = arr.length;
-    for (let i = 0; i < n; i++) {
-      let sum = 0;
-      for (let j = 0; j < window; j++) {
-        const index = i + j - window / 2;
-        sum += arr[(index + n) % n].y;
-      }
-      result[i].y = sum / window;
-    }
-    return result;
-  };
+  const moodOnDayOfYear = entries.moodsByDayOfYear();
 
   const averages = rollingAverageTorroidial(
-    Object.entries(moodOnDayOfYear)
-      .map(([date, values]) => ({
-        x: parse(date, "yyyy-MM-dd", new Date()),
-        y: values.reduce((a, b) => a + b, 0) / values.length,
-      }))
-      .sort((a, b) => a.x.getTime() - b.x.getTime()),
+    moodOnDayOfYear.averageSeries,
     window
   );
 
-  const mins = rollingAverageTorroidial(
-    Object.entries(moodOnDayOfYear)
-      .map(([date, values]) => ({
-        x: parse(date, "yyyy-MM-dd", new Date()),
-        y: Math.min(...values),
-      }))
-      .sort((a, b) => a.x.getTime() - b.x.getTime()),
-    window
-  );
+  const mins = rollingAverageTorroidial(moodOnDayOfYear.minSeries, window);
 
-  const maxs = rollingAverageTorroidial(
-    Object.entries(moodOnDayOfYear)
-      .map(([date, values]) => ({
-        x: parse(date, "yyyy-MM-dd", new Date()),
-        y: Math.max(...values),
-      }))
-      .sort((a, b) => a.x.getTime() - b.x.getTime()),
-    window
-  );
+  const maxs = rollingAverageTorroidial(moodOnDayOfYear.maxSeries, window);
 
   const chart = new Chart(createChartElement("average-mood-on-day-of-year"), {
     type: "line",
@@ -471,6 +444,157 @@ export async function generateAverageMoodOnDayOfYear(
           backgroundColor: "#f59fed",
         },
       ],
+    },
+  });
+
+  chart.render();
+}
+
+export async function generateYearComparisonRemovingAnnualSeasonaility(
+  entries: TimePeriodGroupedEntries,
+  window: number,
+  entryFilter: (e: TimePeriodGroupedEntry) => boolean = () => true
+) {
+  const movingAverageOverTime = entries.movingAverage(window, entryFilter);
+
+  function groupByYear(entries: MovingAverageEntry[]) {
+    const years = new Map<number, MovingAverageEntry[]>();
+    for (const entry of entries) {
+      const year = entry.date.getFullYear();
+      if (!years.has(year)) {
+        years.set(year, []);
+      }
+      years.get(year)?.push(entry);
+    }
+    return years;
+  }
+
+  function normaliseDate(date: Date) {
+    const normalised = new Date(date);
+    normalised.setFullYear(1970);
+    return normalised;
+  }
+
+  function normaliseDatesIntoSingleYear(
+    years: Map<number, MovingAverageEntry[]>
+  ) {
+    const normalised = new Map<number, MovingAverageEntry[]>();
+    for (const [year, entries] of years) {
+      const normalisedEntries = entries.map(
+        (e) =>
+          new MovingAverageEntry({
+            count: e.count,
+            sum: e.sum,
+            format: "yyyy-MM-dd",
+            date: format(normaliseDate(e.date), "yyyy-MM-dd"),
+          })
+      );
+      normalised.set(year, normalisedEntries);
+    }
+    return normalised;
+  }
+
+  const moodsOnDayOfYear = entries.moodsByDayOfYear();
+
+  const averageMoodOnDayOfYear = rollingAverageTorroidial(
+    moodsOnDayOfYear.averageSeries,
+    window
+  );
+
+  const years = normaliseDatesIntoSingleYear(
+    groupByYear(movingAverageOverTime)
+  );
+
+  const colors: Record<number, string> = {
+    2021: "#f9bded",
+    2022: "#d668cc",
+    2023: "#884d94",
+    2024: "#4a4066",
+    2025: "#2b2a44",
+  };
+
+  const datasets = Array.from(years).map(([year, entries]) => ({
+    label: year.toString(),
+    data: entries.map((v) => ({
+      x: v.date,
+      y:
+        v.average -
+        (averageMoodOnDayOfYear.find((a) => a.x.getTime() === v.date.getTime())
+          ?.y || 0),
+    })),
+    borderColor: colors[year],
+    backgroundColor: colors[year],
+  }));
+
+  const chart = new Chart(createChartElement("mood-over-time"), {
+    type: "line",
+    options: {
+      elements: {
+        point: {
+          radius: 0,
+        },
+        line: {
+          borderColor: "#000000",
+          borderWidth: 2,
+        },
+      },
+      plugins: {
+        title: createTitle("Deseasonalised by year"),
+        subtitle: createSubtitle(
+          `Daily rated mood by year, deseasonalised | Moving average over ${window} days`
+        ),
+      },
+      scales: {
+        y: {
+          title: {
+            display: false,
+            text: "mood",
+          },
+          grid: {
+            display: true,
+            color: "#cccccc",
+          },
+          border: {
+            display: false,
+          },
+          ticks: {
+            stepSize: 1,
+          },
+        },
+        x: {
+          title: {
+            display: false,
+            text: "date",
+          },
+          grid: {
+            drawOnChartArea: false,
+            drawTicks: true,
+          },
+          border: {
+            display: false,
+          },
+          ticks: {
+            maxRotation: 0,
+            minRotation: 0,
+          },
+          type: "time",
+          time: {
+            unit: "month",
+            displayFormats: {
+              month: "MMM",
+            },
+          },
+          adapters: {
+            date: {
+              locale: enGB,
+            },
+          },
+        },
+      },
+      aspectRatio: 1.5,
+    },
+    data: {
+      datasets,
     },
   });
 

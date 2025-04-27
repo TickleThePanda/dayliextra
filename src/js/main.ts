@@ -11,6 +11,7 @@ import {
   generateMoodOverTimeCharts,
   generateYearComparison,
   generateAverageMoodOnDayOfYear,
+  generateYearComparisonRemovingAnnualSeasonaility,
 } from "./lib/charts.js";
 import { addDays, subDays, subMonths } from "date-fns";
 
@@ -76,10 +77,12 @@ async function main(blob: Blob) {
     (e) => e.date > startOf2022
   );
 
-  await generateAverageMoodOnDayOfYear(
+  await generateAverageMoodOnDayOfYear(dayEntries, 30, "days");
+
+  await generateYearComparisonRemovingAnnualSeasonaility(
     dayEntries,
     30,
-    "days"
+    (e) => e.date > subDays(startOf2022, 15)
   );
 }
 
