@@ -321,33 +321,62 @@ export async function generateAverageMoodOnDayOfYear(
   window: number,
   unit: string
 ) {
+  const moodOnDayOfYear = entries.entries.reduce((acc, entry) => {
+    const dateAlignedTo1970 = format(setYear(entry.date, 1970), "yyyy-MM-dd");
+    acc[dateAlignedTo1970] = (acc[dateAlignedTo1970] || []).concat([
+      entry.averageMood,
+    ]);
+    return acc;
+  }, {} as Record<string, number[]>);
 
-  const movingAverageOverTime = entries.movingAverage(window);
+  type DateValue = {
+    x: Date;
+    y: number;
+  };
 
-  const averagesOnDayOfYear = movingAverageOverTime.reduce(
-    (acc, entry) => {
-      const dateAlignedTo1970 = format(setYear(entry.date, 1970), "yyyy-MM-dd");
-      acc[dateAlignedTo1970] = (acc[dateAlignedTo1970] || []).concat([entry.average]);
-      return acc;
-    },
-    {} as Record<string, number[]>
+  const rollingAverageTorroidial = (arr: DateValue[], window: number) => {
+    const result = arr.map((v) => ({ x: v.x, y: 0 }));
+    const n = arr.length;
+    for (let i = 0; i < n; i++) {
+      let sum = 0;
+      for (let j = 0; j < window; j++) {
+        const index = i + j - window / 2;
+        sum += arr[(index + n) % n].y;
+      }
+      result[i].y = sum / window;
+    }
+    return result;
+  };
+
+  const averages = rollingAverageTorroidial(
+    Object.entries(moodOnDayOfYear)
+      .map(([date, values]) => ({
+        x: parse(date, "yyyy-MM-dd", new Date()),
+        y: values.reduce((a, b) => a + b, 0) / values.length,
+      }))
+      .sort((a, b) => a.x.getTime() - b.x.getTime()),
+    window
   );
 
-  const averages = Object.entries(averagesOnDayOfYear).map(([date, values]) => ({
-    x: parse(date, "yyyy-MM-dd", new Date()),
-    y: values.reduce((a, b) => a + b, 0) / values.length,
-  })).sort((a, b) => a.x.getTime() - b.x.getTime());
+  const mins = rollingAverageTorroidial(
+    Object.entries(moodOnDayOfYear)
+      .map(([date, values]) => ({
+        x: parse(date, "yyyy-MM-dd", new Date()),
+        y: Math.min(...values),
+      }))
+      .sort((a, b) => a.x.getTime() - b.x.getTime()),
+    window
+  );
 
-  const mins = Object.entries(averagesOnDayOfYear).map(([date, values]) => ({
-    x: parse(date, "yyyy-MM-dd", new Date()),
-    y: Math.min(...values),
-  })).sort((a, b) => a.x.getTime() - b.x.getTime());
-
-  const maxs = Object.entries(averagesOnDayOfYear).map(([date, values]) => ({
-    x: parse(date, "yyyy-MM-dd", new Date()),
-    y: Math.max(...values),
-  })).sort((a, b) => a.x.getTime() - b.x.getTime());
-
+  const maxs = rollingAverageTorroidial(
+    Object.entries(moodOnDayOfYear)
+      .map(([date, values]) => ({
+        x: parse(date, "yyyy-MM-dd", new Date()),
+        y: Math.max(...values),
+      }))
+      .sort((a, b) => a.x.getTime() - b.x.getTime()),
+    window
+  );
 
   const chart = new Chart(createChartElement("average-mood-on-day-of-year"), {
     type: "line",
@@ -361,7 +390,7 @@ export async function generateAverageMoodOnDayOfYear(
         },
       },
       plugins: {
-        title: createTitle("Average mood on day of year"),
+        title: createTitle("Mood on day of year"),
         subtitle: createSubtitle(
           `Daily rated mood | Moving average over ${window} ${unit}`
         ),
@@ -446,5 +475,4 @@ export async function generateAverageMoodOnDayOfYear(
   });
 
   chart.render();
-
 }
