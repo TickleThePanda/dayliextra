@@ -10,6 +10,7 @@ import "chartjs-adapter-date-fns";
 import {
   generateMoodOverTimeCharts,
   generateYearComparison,
+  generateAverageMoodOnDayOfYear,
 } from "./lib/charts.js";
 import { addDays, subDays, subMonths } from "date-fns";
 
@@ -73,6 +74,12 @@ async function main(blob: Blob) {
     "weeks",
     "Since start 2023",
     (e) => e.date > startOf2022
+  );
+
+  await generateAverageMoodOnDayOfYear(
+    dayEntries,
+    30,
+    "days"
   );
 }
 

@@ -7,7 +7,7 @@ import {
   TimePeriodGroupedEntries,
   TimePeriodGroupedEntry,
 } from "./daylio-converter.js";
-import { format, parse } from "date-fns";
+import { format, parse, setYear } from "date-fns";
 
 export async function generateMoodOverTimeCharts(
   entries: TimePeriodGroupedEntries,
@@ -158,6 +158,7 @@ export async function generateYearComparison(
     2022: "#d668cc",
     2023: "#884d94",
     2024: "#4a4066",
+    2025: "#2b2a44",
   };
 
   const datasets = Array.from(years).map(([year, entries]) => ({
@@ -313,4 +314,137 @@ async function generateRelationshipCharts(
       chart.render();
     }
   }
+}
+
+export async function generateAverageMoodOnDayOfYear(
+  entries: TimePeriodGroupedEntries,
+  window: number,
+  unit: string
+) {
+
+  const movingAverageOverTime = entries.movingAverage(window);
+
+  const averagesOnDayOfYear = movingAverageOverTime.reduce(
+    (acc, entry) => {
+      const dateAlignedTo1970 = format(setYear(entry.date, 1970), "yyyy-MM-dd");
+      acc[dateAlignedTo1970] = (acc[dateAlignedTo1970] || []).concat([entry.average]);
+      return acc;
+    },
+    {} as Record<string, number[]>
+  );
+
+  const averages = Object.entries(averagesOnDayOfYear).map(([date, values]) => ({
+    x: parse(date, "yyyy-MM-dd", new Date()),
+    y: values.reduce((a, b) => a + b, 0) / values.length,
+  })).sort((a, b) => a.x.getTime() - b.x.getTime());
+
+  const mins = Object.entries(averagesOnDayOfYear).map(([date, values]) => ({
+    x: parse(date, "yyyy-MM-dd", new Date()),
+    y: Math.min(...values),
+  })).sort((a, b) => a.x.getTime() - b.x.getTime());
+
+  const maxs = Object.entries(averagesOnDayOfYear).map(([date, values]) => ({
+    x: parse(date, "yyyy-MM-dd", new Date()),
+    y: Math.max(...values),
+  })).sort((a, b) => a.x.getTime() - b.x.getTime());
+
+
+  const chart = new Chart(createChartElement("average-mood-on-day-of-year"), {
+    type: "line",
+    options: {
+      elements: {
+        point: {
+          radius: 0,
+        },
+        line: {
+          borderWidth: 2,
+        },
+      },
+      plugins: {
+        title: createTitle("Average mood on day of year"),
+        subtitle: createSubtitle(
+          `Daily rated mood | Moving average over ${window} ${unit}`
+        ),
+      },
+      scales: {
+        y: {
+          type: "linear",
+          title: {
+            display: false,
+            text: "mood",
+          },
+          grid: {
+            display: true,
+            color: "#cccccc",
+          },
+          border: {
+            display: false,
+          },
+          min: 1,
+          max: 5,
+          ticks: {
+            stepSize: 1,
+          },
+        },
+        x: {
+          title: {
+            display: false,
+            text: "date",
+          },
+          grid: {
+            drawOnChartArea: false,
+            drawTicks: true,
+          },
+          border: {
+            display: false,
+            color: "#000000",
+          },
+          ticks: {
+            maxRotation: 0,
+            minRotation: 0,
+          },
+          type: "time",
+          time: {
+            unit: "month",
+            displayFormats: {
+              month: "MMM",
+            },
+          },
+          adapters: {
+            date: {
+              locale: enGB,
+            },
+          },
+        },
+      },
+    },
+    data: {
+      datasets: [
+        {
+          label: "Average",
+          data: averages,
+          pointBackgroundColor: "#000000",
+          borderColor: "#d668cc",
+          backgroundColor: "#d668cc",
+        },
+        {
+          label: "Min",
+          data: mins,
+          pointBackgroundColor: "#000000",
+          borderColor: "#f59fed",
+          backgroundColor: "#f59fed",
+        },
+        {
+          label: "Max",
+          data: maxs,
+          pointBackgroundColor: "#000000",
+          borderColor: "#f59fed",
+          backgroundColor: "#f59fed",
+        },
+      ],
+    },
+  });
+
+  chart.render();
+
 }
